@@ -1195,8 +1195,11 @@ let TB_CICLO_ALL = [];
 function tbShowCiclo(key, label) {
   if (!TB_PERSONAS) { alert('Los datos aún se están cargando, espere un momento.'); return; }
   TB_CICLO_CURRENT = key;
-  TB_CICLO_ALL = TB_PERSONAS.filter(p => p.ciclo === key);
-  document.getElementById('tb-ciclo-list-title').textContent = `${label} · ${TB_CICLO_ALL.length.toLocaleString('es-CO')} personas`;
+  TB_CICLO_ALL = key === 'ge'
+    ? TB_PERSONAS.filter(p => p.gest === 1)
+    : TB_PERSONAS.filter(p => p.ciclo === key);
+  const unit = key === 'ge' ? 'gestantes' : 'personas';
+  document.getElementById('tb-ciclo-list-title').textContent = `${label} · ${TB_CICLO_ALL.length.toLocaleString('es-CO')} ${unit}`;
   document.getElementById('tb-ciclo-search').value = '';
   document.getElementById('tb-ciclo-list-wrap').style.display = 'block';
   tbRenderCicloList(TB_CICLO_ALL);
@@ -1314,11 +1317,6 @@ function buildTablero() {
       <div class="tb-kpi-val">${fmt(t.personas)}</div>
       <div class="tb-kpi-label">Personas Caracterizadas</div>
     </div>
-    <div class="tb-kpi-card">
-      <div class="tb-kpi-icon">🤰</div>
-      <div class="tb-kpi-val">${fmt(t.gestantes)}</div>
-      <div class="tb-kpi-label">Mujeres Gestantes</div>
-    </div>
   `;
   // Etnia bars
   const ETNIA_DATA = [
@@ -1349,6 +1347,7 @@ function buildTablero() {
     {key:'ju', icon:'🧑‍🎓', label:'Juventud',       rango:'18 - 28 años',val:5274, color:'#8e44ad'},
     {key:'au', icon:'👩‍💼', label:'Adultez',        rango:'29 - 59 años',val:11928,color:'#16a085'},
     {key:'am', icon:'👴', label:'Adulto Mayor',     rango:'60+ años',    val:6186, color:'#e74c3c'},
+    {key:'ge', icon:'🤰', label:'Mujeres Gestantes',rango:'Todas las edades', val:196, color:'#d81b60'},
   ];
   document.getElementById('tb-ciclos-cards').innerHTML = CICLOS.map(c=>`
     <div class="tb-ciclo-card" onclick="tbShowCiclo('${c.key}','${c.label} (${c.rango})')" style="border-top-color:${c.color}">
@@ -1484,7 +1483,7 @@ function buildTablero() {
 
 
 .tb-ciclos-panel {}
-#tb-ciclos-cards { display:grid; grid-template-columns:repeat(6,1fr); gap:12px; }
+#tb-ciclos-cards { display:grid; grid-template-columns:repeat(7,1fr); gap:12px; }
 .tb-ciclo-card {
   background:#fff; border:1px solid #eee; border-top:4px solid #ccc;
   border-radius:12px; padding:14px 10px; text-align:center; cursor:pointer;
@@ -1516,8 +1515,8 @@ function buildTablero() {
 @media(max-width:700px){
   #tb-ciclos-cards { grid-template-columns:repeat(2,1fr); }
 }
-@media(max-width:1000px){
-  #tb-ciclos-cards { grid-template-columns:repeat(3,1fr); }
+@media(max-width:1100px){
+  #tb-ciclos-cards { grid-template-columns:repeat(4,1fr); }
 }
 
 .tb-fuente { font-size: .72rem; color: #999; text-align: right; margin-top: 8px; }
