@@ -461,6 +461,7 @@
       <option value="marzo">Marzo</option>
       <option value="abril">Abril</option>
       <option value="mayo">Mayo</option>
+      <option value="junio">Junio</option>
     </select>
     <select id="filter-pagos-estado" onchange="filterPagos()">
       <option value="">Todos los estados</option>
@@ -481,6 +482,7 @@
           <th style="text-align:center;">Marzo</th>
           <th style="text-align:center;">Abril</th>
           <th style="text-align:center;">Mayo</th>
+          <th style="text-align:center;">Junio</th>
           <th style="text-align:center;">Estado</th>
         </tr>
       </thead>
@@ -959,15 +961,16 @@ function buildStats() {
 // ===== PAGOS =====
 const PAGOS = {}; // Se genera dinámicamente abajo
 const MAYO_PAGADOS = new Set(["CPS 164","CPS 165","CPS 166","CPS 168","CPS 169","CPS 170","CPS 171","CPS 172","CPS 173","CPS 174","CPS 175","CPS 176","CPS 177","CPS 178","CPS 179","CPS 180","CPS 181","CPS 182","CPS 183","CPS 184","CPS 185","CPS 187","CPS 188","CPS 189","CPS 190","CPS 191","CPS 192","CPS 210","CPS 211","CPS 212","CPS 213","CPS 214","CPS 215","CPS 216","CPS 217","CPS 218","CPS 219","CPS 220","CPS 221","CPS 222","CPS 223","CPS 224","CPS 226","CPS 227","CPS 228","CPS 230","CPS 231","CPS 233","CPS 234","CPS 235","CPS 236","CPS 237","CPS 238","CPS 239","CPS 240","CPS 241","CPS 242","CPS 243","CPS 244","CPS 245","CPS 246","CPS 247","CPS 248","CPS 249","CPS 250","CPS 251","CPS 252","CPS 253","CPS 254","CPS 255","CPS 256","CPS 257","CPS 258","CPS 259","CPS 260","CPS 261","CPS 262","CPS 263","CPS 264","CPS 265","CPS 267","CPS 269","CPS 270","CPS 271","CPS 272","CPS 273","CPS 274","CPS 275","CPS 277","CPS 280","CPS 283","CPS 284","CPS 312","CPS 317","CPS 322","CPS 377"]);
-DATA.forEach(c => { PAGOS[c.cps] = {marzo:true, abril:true, mayo: MAYO_PAGADOS.has(c.cps)}; });
+const JUNIO_PAGADOS = new Set(["CPS 180","CPS 181","CPS 182","CPS 184","CPS 187","CPS 224"]);
+DATA.forEach(c => { PAGOS[c.cps] = {marzo:true, abril:true, mayo: MAYO_PAGADOS.has(c.cps), junio: JUNIO_PAGADOS.has(c.cps)}; });
 
 const PAGOS_DATA = DATA.map(c => {
-  const p = PAGOS[c.cps] || {marzo:false,abril:false,mayo:false};
-  const meses = ['marzo','abril','mayo'];
+  const p = PAGOS[c.cps] || {marzo:false,abril:false,mayo:false,junio:false};
+  const meses = ['marzo','abril','mayo','junio'];
   const con = meses.filter(m => p[m]).length;
-  const total = 3; // meses disponibles
+  const total = 4; // meses disponibles
   const estado = con === total ? 'completo' : con > 0 ? 'parcial' : 'pendiente';
-  return { ...c, marzo: p.marzo||false, abril: p.abril||false, mayo: p.mayo||false, estado, con };
+  return { ...c, marzo: p.marzo||false, abril: p.abril||false, mayo: p.mayo||false, junio: p.junio||false, estado, con };
 });
 
 let filteredPagos = [...PAGOS_DATA];
@@ -1003,7 +1006,7 @@ function renderPagosTable() {
   const tbody = document.getElementById('tbody-pagos');
 
   if (!page.length) {
-    tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state"><div class="emoji">💰</div><p>No se encontraron registros.</p></div></td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9"><div class="empty-state"><div class="emoji">💰</div><p>No se encontraron registros.</p></div></td></tr>';
     document.getElementById('pagos-count').textContent = '0 registros';
     document.getElementById('pag-pagos').innerHTML = '';
     return;
@@ -1031,6 +1034,7 @@ function renderPagosTable() {
       ${soporte(d.marzo)}
       ${soporte(d.abril)}
       ${soporte(d.mayo)}
+      ${soporte(d.junio)}
       <td style="text-align:center;">${estadoBadge(d.estado)}</td>
     </tr>`;
   }).join('');
