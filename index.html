@@ -314,6 +314,7 @@
   <button class="nav-btn active" onclick="showSection('contratistas',this)">👥 Contratistas</button>
   <button class="nav-btn" onclick="showSection('ebs',this)">🏘️ Equipos EBS</button>
   <button class="nav-btn" onclick="showSection('actividades',this)">📋 Actividades</button>
+  <button class="nav-btn" onclick="showSection('planescuidado',this)">🗂️ Planes de Cuidado</button>
   <button class="nav-btn" onclick="showSection('pagos',this)">💰 Pagos</button>
   <button class="nav-btn" onclick="showSection('tablero',this)">📊 Tablero de Control</button>
   </div>
@@ -446,6 +447,51 @@
     </table>
   </div>
   <div class="pagination" id="pag-acts"></div>
+</div>
+
+<!-- PLANES DE CUIDADO (detalle por paciente) -->
+<div id="sec-planescuidado" class="section">
+  <div class="stats-row" id="stats-pc"></div>
+  <div class="toolbar">
+    <div class="search-wrap">
+      <span class="search-icon">🔍</span>
+      <input type="text" id="search-pc" placeholder="Buscar por paciente, cédula, CPS, contratista..." oninput="filterPlanesCuidado()">
+    </div>
+    <select id="filter-pc-cps" onchange="filterPlanesCuidado()">
+      <option value="">Todos los CPS</option>
+    </select>
+    <select id="filter-pc-mes" onchange="filterPlanesCuidado()">
+      <option value="">Todos los meses</option>
+      <option value="marzo">Marzo</option>
+      <option value="abril">Abril</option>
+      <option value="mayo">Mayo</option>
+      <option value="junio">Junio</option>
+    </select>
+    <select id="filter-pc-estado" onchange="filterPlanesCuidado()">
+      <option value="">Todos los estados</option>
+      <option value="Completo">Completo</option>
+      <option value="No se encuentra en BD">No se encuentra en BD</option>
+    </select>
+    <span class="count-badge" id="pc-count">0 registros</span>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>CPS</th>
+          <th>Nombre</th>
+          <th>Cédula</th>
+          <th>EBS</th>
+          <th>Mes</th>
+          <th>Atenciones registradas</th>
+          <th>Estado</th>
+        </tr>
+      </thead>
+      <tbody id="tbody-pc"></tbody>
+    </table>
+  </div>
+  <div class="pagination" id="pag-pc"></div>
 </div>
 
 <!-- PAGOS -->
@@ -603,6 +649,7 @@ function showSection(id, btn) {
   if (btn) btn.classList.add('active');
   if (id === 'ebs') renderEBS();
   if (id === 'actividades') filterActividades();
+  if (id === 'planescuidado') filterPlanesCuidado();
   if (id === 'pagos') filterPagos();
 }
 
@@ -677,15 +724,15 @@ function goPage(p) { currentPage = p; renderTable(); window.scrollTo(0,0); }
 // ===== ACTIVIDADES =====
 // Datos reales extraídos de los PDFs — Fuente: Drive APS 2026
 const ACTIVITIES = {
-  "CPS 179":{"marzo":25,"abril":0,"mayo":63,"junio":0,"total":88},
+  "CPS 179":{"marzo":25,"abril":62,"mayo":63,"junio":0,"total":150},
   "CPS 180":{"marzo":0,"abril":0,"mayo":41,"junio":0,"total":41},
   "CPS 181":{"marzo":7,"abril":16,"mayo":25,"junio":1,"total":49},
   "CPS 182":{"marzo":12,"abril":0,"mayo":25,"junio":0,"total":37},
   "CPS 183":{"marzo":13,"abril":45,"mayo":26,"junio":2,"total":86},
   "CPS 184":{"marzo":27,"abril":30,"mayo":0,"junio":0,"total":57},
   "CPS 185":{"marzo":31,"abril":17,"mayo":33,"junio":3,"total":84},
-  "CPS 186":{"marzo":0,"abril":10,"mayo":0,"junio":0,"total":10},
-  "CPS 187":{"marzo":20,"abril":0,"mayo":133,"junio":15,"total":168},
+  "CPS 186":{"marzo":10,"abril":10,"mayo":0,"junio":0,"total":20},
+  "CPS 187":{"marzo":99,"abril":0,"mayo":133,"junio":23,"total":255},
   "CPS 188":{"marzo":11,"abril":55,"mayo":40,"junio":2,"total":108},
   "CPS 189":{"marzo":1,"abril":11,"mayo":0,"junio":0,"total":12},
   "CPS 190":{"marzo":0,"abril":0,"mayo":8,"junio":3,"total":11},
@@ -840,6 +887,384 @@ const TIPO_ACT = {
   'Jefe Enfermero': 'Plan de Cuidado',
   'Psicólogo': 'Plan de Cuidado'
 };
+
+// ===== PLANES DE CUIDADO (detalle por paciente, cargue SISPRO) =====
+const PLANES_CUIDADO_DETALLE = [
+  {cps:"CPS 179", mes:"marzo", paciente:"ALFONSO LOPEZ MONTIEL", cedula:"96340376", atenciones:"Consulta 1ra vez medicina general; Consulta 1ra vez enfermería (x2)", estado:"Completo"},
+  {cps:"CPS 179", mes:"marzo", paciente:"ROSANA VARGAS MONTIEL", cedula:"40092366", atenciones:"Educación individual medicina general; Consulta 1ra vez enfermería", estado:"Completo"},
+  {cps:"CPS 179", mes:"marzo", paciente:"BELLA NERY LOPEZ VARGAS", cedula:"40614855", atenciones:"Educación grupal medicina general; Educación grupal enfermería", estado:"Completo"},
+  {cps:"CPS 179", mes:"marzo", paciente:"DIANA CAROLINA LOPEZ", cedula:"1117497902", atenciones:"Consulta 1ra vez medicina general; Consulta 1ra vez enfermería", estado:"Completo"},
+  {cps:"CPS 179", mes:"marzo", paciente:"GILBERTO BUITRON REALPE", cedula:"17631513", atenciones:"Consulta 1ra vez medicina general; Consulta 1ra vez enfermería", estado:"Completo"},
+  {cps:"CPS 179", mes:"marzo", paciente:"LEONOR FIDELINA RODRIGUEZ", cedula:"41103213", atenciones:"Consulta 1ra vez medicina general; Consulta 1ra vez enfermería", estado:"Completo"},
+  {cps:"CPS 179", mes:"marzo", paciente:"LILIA RAMIEZ OCAMPO", cedula:"40600256", atenciones:"Consulta 1ra vez medicina general; Consulta 1ra vez enfermería", estado:"Completo"},
+  {cps:"CPS 179", mes:"marzo", paciente:"YERLY ALEJANDRA VASQUEZ", cedula:"1032498540", atenciones:"Consulta 1ra vez medicina general; Consulta 1ra vez enfermería", estado:"Completo"},
+  {cps:"CPS 179", mes:"marzo", paciente:"LIDIA HERNANDEZ", cedula:"40767999", atenciones:"Consulta 1ra vez medicina general; Consulta 1ra vez enfermería", estado:"Completo"},
+  {cps:"CPS 179", mes:"marzo", paciente:"JULIO CESAR HERRERA LASSO", cedula:"17654664", atenciones:"Consulta 1ra vez medicina general; Consulta 1ra vez enfermería", estado:"Completo"},
+  {cps:"CPS 179", mes:"marzo", paciente:"YESICA PAOLA ALDANA SILVA", cedula:"1117521512", atenciones:"Consulta 1ra vez medicina general; Consulta 1ra vez enfermería", estado:"Completo"},
+  {cps:"CPS 179", mes:"marzo", paciente:"OMAIRA MORENO", cedula:"40781419", atenciones:"Consulta 1ra vez medicina general; Consulta 1ra vez enfermería", estado:"Completo"},
+  {cps:"CPS 179", mes:"marzo", paciente:"MARLENY VASQUEZ VASQUEZ", cedula:"40764623", atenciones:"Consulta 1ra vez medicina general; Consulta 1ra vez enfermería", estado:"Completo"},
+  {cps:"CPS 179", mes:"marzo", paciente:"JOSE ARBEY GRISALES", cedula:"17629688", atenciones:"Consulta 1ra vez medicina general; Consulta 1ra vez enfermería", estado:"Completo"},
+  {cps:"CPS 179", mes:"marzo", paciente:"MARIA LUISA PALOMINO", cedula:"36169876", atenciones:"Consulta 1ra vez medicina general; Consulta 1ra vez enfermería", estado:"Completo"},
+  {cps:"CPS 179", mes:"marzo", paciente:"ROSA MARIA ROJAS", cedula:"22009220", atenciones:"Consulta 1ra vez medicina general; Consulta 1ra vez enfermería", estado:"Completo"},
+  {cps:"CPS 179", mes:"marzo", paciente:"FABIOLA VALDERRAMA CARDONA", cedula:"30508872", atenciones:"Consulta 1ra vez medicina general; Consulta 1ra vez enfermería", estado:"Completo"},
+  {cps:"CPS 179", mes:"marzo", paciente:"ADRIANA VALDERRAMA CARDONA", cedula:"1117510910", atenciones:"Consulta 1ra vez medicina general; Consulta 1ra vez enfermería", estado:"Completo"},
+  {cps:"CPS 179", mes:"marzo", paciente:"YUDI ANDREA ESPINOSA", cedula:"1117532577", atenciones:"Educación individual medicina general; Consulta 1ra vez enfermería", estado:"Completo"},
+  {cps:"CPS 179", mes:"marzo", paciente:"DAMARIS AROCA GUTIERREZ", cedula:"40614364", atenciones:"Consulta 1ra vez medicina general; Consulta 1ra vez enfermería", estado:"Completo"},
+  {cps:"CPS 179", mes:"marzo", paciente:"JUDITH PUENTES", cedula:"26642573", atenciones:"Educación grupal medicina general; Consulta 1ra vez enfermería", estado:"Completo"},
+  {cps:"CPS 179", mes:"marzo", paciente:"FABIO GONZALES", cedula:"17628567", atenciones:"Consulta 1ra vez medicina general; Consulta 1ra vez enfermería", estado:"Completo"},
+  {cps:"CPS 179", mes:"marzo", paciente:"MANUEL ARIAS", cedula:"14883084", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 179", mes:"marzo", paciente:"NOHEMY AGUDELO", cedula:"40727854", atenciones:"Consulta 1ra vez medicina general; Consulta 1ra vez enfermería", estado:"Completo"},
+  {cps:"CPS 179", mes:"marzo", paciente:"NOLVERTO POLANIA", cedula:"19108810", atenciones:"Consulta 1ra vez medicina general; Consulta 1ra vez enfermería", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"FELIX ANTONIO LOPEZ RUIZ", cedula:"17287042", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"BREINER JULIAN CORREA BECERRA", cedula:"1117486213", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"PAULA YURLEY CORREA BECERRA", cedula:"1007385812", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"NILVA HOYOS", cedula:"1117497902", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 179", mes:"abril", paciente:"MONICA MARIA DUQUE ARENAS", cedula:"40077957", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"NORMA CONSTANZA CALDERON VILLA", cedula:"1006513953", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 179", mes:"abril", paciente:"MARIA DEL ROSARIO TRUJILLO", cedula:"40784076", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 179", mes:"abril", paciente:"ESNEDA ROJAS GOMEZ", cedula:"40778153", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 179", mes:"abril", paciente:"JOSE ANTONIO ROJAS NAVARRO", cedula:"17625666", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 179", mes:"abril", paciente:"FARNELLY ROJAS GOMEZ", cedula:"1117262438", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 179", mes:"abril", paciente:"LUZ ARGENIS GARIBELLO", cedula:"1115942520", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 179", mes:"abril", paciente:"CHIRLY ALVAREZ VALENCIA", cedula:"1077867930", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 179", mes:"abril", paciente:"ALEIDA VALENCIA", cedula:"25025347", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 179", mes:"abril", paciente:"GLORIA MARIA PEREZ", cedula:"30515065", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 179", mes:"abril", paciente:"LINA CONSUELO RODRIGUEZ LOZANO", cedula:"1117511369", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 179", mes:"abril", paciente:"ARMENIO GAITAN MONTIEL", cedula:"6581660", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 179", mes:"abril", paciente:"RUBIELA MORALES DE RODRIGUEZ", cedula:"26617103", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 179", mes:"abril", paciente:"DIANA CAROLINA LOPEZ", cedula:"1117497902", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 179", mes:"abril", paciente:"LEONOR FIDELINA RODRIGUEZ", cedula:"41103213", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 179", mes:"abril", paciente:"LIDIA HERNANDEZ", cedula:"40767999", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 179", mes:"abril", paciente:"JULIO CESAR HERRERA LASSO", cedula:"17654664", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 179", mes:"abril", paciente:"YESICA PAOLA ALDANA SILVA", cedula:"1117521512", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 179", mes:"abril", paciente:"MARLENY VASQUEZ VASQUEZ", cedula:"407646623", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 179", mes:"abril", paciente:"JOSE ARBEY GRISALES", cedula:"17629688", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 179", mes:"abril", paciente:"MARIA LUISA PALOMINO", cedula:"36169876", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 179", mes:"abril", paciente:"KERLY LISSETH FERNANDEZ CORREA", cedula:"1117551692", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 179", mes:"abril", paciente:"MILTON CORREA MOSQUERA", cedula:"83041776", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 179", mes:"abril", paciente:"ANGUIE KATHERINE RAMOS CEBALLOS", cedula:"1117544831", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 179", mes:"abril", paciente:"EDGAR BELTRAN ROMERO", cedula:"14267913", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 179", mes:"abril", paciente:"SANDRA MILENA ORTIZ QUINTERO", cedula:"1117495833", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 179", mes:"abril", paciente:"JAVIER MARTINEZ RIVERA", cedula:"1116913944", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 179", mes:"abril", paciente:"GLORIA BARREIRO", cedula:"26630129", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 179", mes:"abril", paciente:"MARTHA CECILIA TORO CEPULVEDA", cedula:"40727236", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 179", mes:"abril", paciente:"HERNEY MUÑOZ GUERRERO", cedula:"76330294", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 179", mes:"abril", paciente:"DINA MARCELA ROJAS CASTAÑEDA", cedula:"1125410649", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 179", mes:"abril", paciente:"GLORIA MERY ONOFE RAZA", cedula:"30718313", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 179", mes:"abril", paciente:"YOLANDA RUBIANO ROJAS", cedula:"40885233", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 179", mes:"abril", paciente:"ROLANDO ARDILA MAZABEL", cedula:"96353884", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"MARIA DEL CARMEN TOLE BERMUDEZ", cedula:"40765501", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"YINETH BARON RUBIANO", cedula:"40611607", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"JOSE DAVID PEREZ TOLE", cedula:"1117550689", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"SHARON MONTEALEGRE", cedula:"1013669434", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"YINETH TAPIERO DURAN", cedula:"1116205846", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"DAMARIS AROCA RODRIGUEZ", cedula:"40614364", atenciones:"Consulta 1ra vez medicina general; Consulta 1ra vez enfermería", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"NOHEMY AGUDELO", cedula:"40727854", atenciones:"Consulta 1ra vez medicina general; Consulta 1ra vez enfermería", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"YUDI ANDREA ESPINOSA", cedula:"1117532577", atenciones:"Educación individual medicina general; Consulta 1ra vez enfermería", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"MANUEL ARIAS", cedula:"36169876", atenciones:"Consulta 1ra vez medicina general; Consulta 1ra vez enfermería", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"NOLVERTO POLANIA", cedula:"19108810", atenciones:"Consulta 1ra vez medicina general; Consulta 1ra vez enfermería", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"FABIO GONZALES", cedula:"17628567", atenciones:"Consulta 1ra vez medicina general; Consulta 1ra vez enfermería", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"JUDITH PUENTES", cedula:"26642573", atenciones:"Educación grupal medicina general; Consulta 1ra vez enfermería", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"CARLOS DARLEY MURILLO CARDONA", cedula:"97601813", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"SANDRA LILIANA CARDONA VARGAS", cedula:"40775727", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"ADRIANA VALDERRAMA CARDONA", cedula:"1117510910", atenciones:"Consulta 1ra vez medicina general; Consulta 1ra vez enfermería", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"FABIOLA VALDERRAMA CARDONA", cedula:"30508872", atenciones:"Consulta 1ra vez medicina general; Consulta 1ra vez enfermería", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"CARMENZA GONZALEZ VICTORIA", cedula:"31375278", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 179", mes:"abril", paciente:"JERLY ALEJANDRA VASQUEZ GUZMAN", cedula:"1032498540", atenciones:"Consulta 1ra vez medicina general; Consulta 1ra vez enfermería", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"YUDI ANDREA ESPINOSA QUINTERO", cedula:"1117532577", atenciones:"Educación individual medicina general; Consulta 1ra vez enfermería", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"LILIA RAMIREZ OCAMPO", cedula:"40600256", atenciones:"Consulta 1ra vez medicina general; Consulta 1ra vez enfermería", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"JOSE DOMINGO MARTINEZ QUINTERO", cedula:"5808113", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"SOILA ROSA CAPERA", cedula:"40720023", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"DIANA MARCELA VELASQUEZ MUÑOZ", cedula:"1117546389", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"DEISY CHALA PRIETO", cedula:"40613058", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"YILENIA GUTIERREZ MOLANO", cedula:"1117505685", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"PEDRO NEL TIBACUY MONTILLA", cedula:"18119066", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"GUSTAVO ROMERO OLIVERO", cedula:"9640051", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 179", mes:"abril", paciente:"OMAIRA MUÑOZ MORENO", cedula:"40781419", atenciones:"Consulta 1ra vez medicina general; Consulta 1ra vez enfermería", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"ROSARIO OTAVO PRIETO", cedula:"40758584", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"LAURA DAYANA VARGAS PEREZ", cedula:"1075395286", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 179", mes:"abril", paciente:"GILBERT BUITRON REALPE", cedula:"17631513", atenciones:"Consulta 1ra vez medicina general; Consulta 1ra vez enfermería", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"ZULMA YICELA PEREZ ACHIPIS", cedula:"40079492", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"HERMILIA OYOLA PEÑA", cedula:"30520560", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"ROSA MARIA ROJAS", cedula:"22009220", atenciones:"Consulta 1ra vez medicina general; Consulta 1ra vez enfermería", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"YALUZ QUINTERO GARCIA", cedula:"40692047", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"MARIA NANCY PARRA", cedula:"40761021", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"SANDRA PATRICIA CAVICHE PARRA", cedula:"40601456", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"ARNULFO CAPERA SILVA", cedula:"17655017", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"MICHELLE DAYANNA CAPERA CUCHIMBA", cedula:"1117506380", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 179", mes:"abril", paciente:"FABIOLA CUELLAR", cedula:"40756775", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"MARIA FERNANDA QUIGUA", cedula:"1006538806", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"INGRID ROCIO MENDOZA CAVICHE", cedula:"1024460293", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"WILLINTONG CAPERA CUCHIMBA", cedula:"1006505462", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"YENNIFER LORENA ZAMBRANO MOLINA", cedula:"1115941474", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"LUIS PATRICIO DELGADO", cedula:"1712090370", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"AZUCENA ALVAREZ ROJAS", cedula:"40780387", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"LAURA SOFIA QUIGUA ALVAREZ", cedula:"1118363410", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"PEDRO ROJAS", cedula:"1133149159", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"DIVA NELLY ROMERO MANCHOLA", cedula:"40595251", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"NELSY VARGAS", cedula:"40613637", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"JESUS ANGEL FIGUEROA VALENZUELA", cedula:"4880608", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"GLORIA ESNEDA MOLANO", cedula:"31566772", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"ALEXANDRA SUAREZ BURGOS", cedula:"40778213", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"SHIRLEY CAVICHE MENDOZA", cedula:"1118471567", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"BLANCA FLOR ASENCIO", cedula:"40087373", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"LEIDY ANDREA PASTRANA", cedula:"1117515528", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"UBERNEY PINZON", cedula:"17705378", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 179", mes:"abril", paciente:"EDILBERTO PASTRANA", cedula:"12104409", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"MARGARITA CRUZ VALENCIA", cedula:"40755008", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"BLANCA ENELIA CAMACHO", cedula:"40079390", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"MARIA ELCY RODRIGUEZ", cedula:"26632242", atenciones:"Consulta 1ra vez medicina general", estado:"Completo"},
+  {cps:"CPS 179", mes:"abril", paciente:"ROSANA VARGAS", cedula:"40092366", atenciones:"Educación individual medicina general; Consulta 1ra vez enfermería", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"ALBA LUZ BERMUDEZ JARAMILLO", cedula:"40729907", atenciones:"Consulta 1ra vez medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"BELARMINA BERMUDEZ", cedula:"40729503", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"FERNANDO RAMIREZ", cedula:"17666411", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"YESSICA PAOLA VALDERRAMA LOPEZ", cedula:"1033774750", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"MARIA LIZETH RAYO ALARCON", cedula:"40094299", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"RODRIGO CHICA VALENZUELA", cedula:"12093671", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"LUZ MELIDA RAMOS VILLADA", cedula:"40729893", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"LUZ ANGELA ALAPE", cedula:"40078173", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"NEIDY VIVIANA LOPEZ MURILLO", cedula:"1118366766", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"ANA CECILIA GARZON SAPUY", cedula:"40756662", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"GLORIA AMPARO CELI TOVAR", cedula:"40779032", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"FRANCO CHAMORRO MUÑOZ", cedula:"16211610", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"YANEDT VEGA SARRIAS", cedula:"40076631", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"JOHN ALEXANDER GUTIERREZ VALENCIA", cedula:"16187808", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"BRILYREDT YULIETH PINZON VEGA", cedula:"1117549738", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"ROXEMBER CHICA NUÑEZ", cedula:"1117526244", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"JOSE DOLORES VILLARREAL", cedula:"26538824", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"JOSE GREGORIO VILLARREAL", cedula:"2148559", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"MARIANA DE LOS ANGELES VILLAREAL BANDE", cedula:"5961578", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"NARLYS ESTHER NARVAEZ VELLOJIN", cedula:"1148143034", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"MARIA EDITH DIAZ CERQUERA", cedula:"1117263013", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"KATHERINE ELIANA FLOREZ", cedula:"5019743", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"MARA CAROLINA SALCEDO SACHEZ", cedula:"11109494261", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"MARLENY SANCHEZ", cedula:"40760879", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"OLGA CECILIA SANCHEZ RODRIGUEZ", cedula:"40760061", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"ALFONSO ALZATE QUIÑONEZ", cedula:"17710351", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"LAURA VALENTINA ALZATE BONILLA", cedula:"1117504711", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"BRADY ESTEFANI ESCOBAR TRIANA", cedula:"1117487622", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"YUDYBRADY TRIANA ORTIZ", cedula:"40077586", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"LUZ AMANDA GOMEZ ORTIZ", cedula:"40756164", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"ESTEBAN RAMIREZ TOVAR", cedula:"17738009", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"BLANCA NIEVES QUIROZ MEDINA", cedula:"69070675", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"SILENA CORTEZ QUIROZ", cedula:"1122723237", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"CONSUELO ULCUE MUSCUE", cedula:"26634473", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"ISABEL CAMPOS MOSQUERA", cedula:"40769333", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"RUBIELA GOMEZ CISNEROS", cedula:"36292694", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"YOLANDA ZAPATA OROZCO", cedula:"40773974", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"NEIRA IMBACHI CORONADO", cedula:"40757794", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"MAYKOL FABIAN GONZALEZ IMBACHI", cedula:"1117521983", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"ARELYS LOSADA CAVIEDES", cedula:"40614465", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"MAXIMO ORTIZ", cedula:"1674660", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"EDITH YURANY SAPUY OROZCO", cedula:"1006511120", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"GILBERTO SAPUY HOME", cedula:"17636410", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"LILA MARIA NUÑEZ HERNANDEZ", cedula:"40087450", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"PASCUALGOMEZ PORTILLO", cedula:"1830463", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"GUSTAVO PERDOMO ROJAS", cedula:"17641042", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"ANDRES ESTEBAN CALPA QUEVEDO", cedula:"1010135657", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"JOSE ARAQUE", cedula:"12090015", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"ANA LUZ BERMUDEZ GUTIERREZ", cedula:"40085318", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"YENI KATHERINE RODRIGUEZ GARCIA", cedula:"1117504450", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"CECILIA PERDOMO RODRIGUEZ", cedula:"40732146", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"MARIA LUISA GUTIERREZ OSPINA", cedula:"1147686861", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"GLORIA ASTRID TOVAR MURCIA", cedula:"40779060", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"NORA TOVAR MURCIA", cedula:"40783061", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"FERNANDO TOVAR MURCIA", cedula:"17659777", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"GENNIVER LEYVA PATIO", cedula:"26592990", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"JULIA VARGAS CARVAJAL", cedula:"26622958", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"DAYANA NORIEGA ROJAS", cedula:"1117554131", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"SANDRA PATRICIA MORA PARRA", cedula:"25381030", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"LEONOR CALDERON CAMPOS", cedula:"26616970", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"MIREYA PENAGOS", cedula:"40725230", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"MABEL DAYANA RIVERA RAMIREZ", cedula:"1006510609", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"NANCY ALZATE RUBIANO", cedula:"40764171", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"NELSON SALAZAR ROJAS", cedula:"12104444", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"FLOR ENRIQUETA ORDOÑEZ FAJARDO", cedula:"40762475", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"MARINA PERDOMO ARCINIEGAS", cedula:"28863518", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"AMANDA MARIA RODRIGUEZ RAMIREZ", cedula:"40756851", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"LEONARDO GALVIZ TORRES", cedula:"17649993", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"MARISOL GUZMAN SCARPETTA", cedula:"40770864", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"LUZ EDITH JURADO AGUDELO", cedula:"40763176", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"ALBENIS CERON PASTUSO", cedula:"30507720", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"ANDRY MISSHEL RAMIREZ CERON", cedula:"1117513091", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"ANDERSON CERON PEÑA", cedula:"1117501442", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"FREDY ALFONSO IRIARTE PUERTA", cedula:"16667653", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"MARIA ESTEFANA BECERRA", cedula:"40768118", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"EDGAR ROJAS", cedula:"17637200", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"ALBA LUZ CABRERA", cedula:"40759696", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"MARIA FERNANDA HOLGUIN HERNANDEZ", cedula:"40079675", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"DOERYN COLLAZOS BECERRA", cedula:"1117550356", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"GUSTAVO PARRA", cedula:"17648827", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"ISABEL CASTAÑEDA MEJIA", cedula:"40775883", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"TERESA VALLEJO VELASCO", cedula:"41109769", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"NIDYA CRISTINA PEREZ RAMIREZ", cedula:"1117512825", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"NELSON VIDALES GARZON", cedula:"96343182", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"ROCIO OLINDE OSORIO HERNADEZ", cedula:"40764510", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"LUZ MELBA ACOSTA RIVERA", cedula:"40772757", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"LIZETH CAMILA TOVAR VALDERRAMA", cedula:"1118363076", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"MARIBEL RODRIGUEZ ROMERO", cedula:"1118026416", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"NELSY PEREZ CALDERON", cedula:"40781846", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"LINA MARCELA MONTALVO JIMENEZ", cedula:"30509914", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"MARIA DE LOS ANGELES CLAVIJO POLO", cedula:"37830475", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"YESSICA MARIA PEÑA CORTES", cedula:"1006432172", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"NATALIA RIVAS BASTOS", cedula:"1117547955", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"FLOR MYRIAM MUÑOZ ZAPATA", cedula:"26628436", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"DANIELA CABEZA ALEGRIA", cedula:"1118366273", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"MARIA LUDIVIA BOHORQUEZ GARCIA", cedula:"40760265", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"ALIRIO GUEVARA ESTRADA", cedula:"12255199", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"ANGELA CONDE LARA", cedula:"40670821", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"ROSA MARIA MUÑOZ ECHEVERY", cedula:"40612948", atenciones:"Consulta de control o seguimiento medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"marzo", paciente:"CENAIDA GAVIRIA GOMEZ", cedula:"40732368", atenciones:"Sin captura de pantalla adjunta", estado:"Sin captura de pantalla"},
+  {cps:"CPS 187", mes:"junio", paciente:"SANDRA MILENA MEDINA", cedula:"40780662", atenciones:"Educación grupal medicina general; Consulta 1ra vez medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"junio", paciente:"ISABELLA SOPHIA CARO MEDINA", cedula:"1118472497", atenciones:"Educación grupal medicina general; Consulta 1ra vez medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"junio", paciente:"ADAN ANTEQUERA", cedula:"1104695004", atenciones:"Educación grupal enfermería; Consulta 1ra vez medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"junio", paciente:"ALVARO GAITAN", cedula:"17627430", atenciones:"Educación individual medicina general; Consulta 1ra vez medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"junio", paciente:"BILMA VASQUEZ PARRA", cedula:"40766894", atenciones:"Educación grupal medicina general; Consulta 1ra vez medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"junio", paciente:"DANIEL ORTEGA", cedula:"17631144", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 187", mes:"junio", paciente:"FERMIN PICHINA", cedula:"1075213163", atenciones:"Educación individual medicina general; Consulta 1ra vez medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"junio", paciente:"ISIDRO BUCURU", cedula:"5963243", atenciones:"Educación grupal medicina general; Consulta 1ra vez medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"junio", paciente:"EMELBA CUPITRA TIQUE", cedula:"40585201", atenciones:"Educación grupal medicina general; Consulta 1ra vez medicina general", estado:"Completo"},
+  {cps:"CPS 187", mes:"junio", paciente:"GIOVANY AUDOR QUIGUA", cedula:"4939048", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 186", mes:"marzo", paciente:"MARIA VERONICA SANTAMARIA", cedula:"1117819276", atenciones:"Consulta 1ra vez enfermería (x2)", estado:"Completo"},
+  {cps:"CPS 186", mes:"marzo", paciente:"BETTY ORDOÑEZ", cedula:"1006523311", atenciones:"Consulta 1ra vez enfermería (x3)", estado:"Completo"},
+  {cps:"CPS 186", mes:"marzo", paciente:"EUGENIA ROMERO", cedula:"26614124", atenciones:"Consulta 1ra vez enfermería", estado:"Completo"},
+  {cps:"CPS 186", mes:"marzo", paciente:"JACQUELINE GOMEZ ROMERO", cedula:"40780419", atenciones:"Consulta 1ra vez enfermería", estado:"Completo"},
+  {cps:"CPS 186", mes:"marzo", paciente:"DARLI YULIANA VALDERRAMA MONROY", cedula:"1117485434", atenciones:"Consulta 1ra vez enfermería", estado:"Completo"},
+  {cps:"CPS 186", mes:"marzo", paciente:"WILLIAM CALDERON VARGAS", cedula:"17656434", atenciones:"Consulta 1ra vez enfermería", estado:"Completo"},
+  {cps:"CPS 186", mes:"marzo", paciente:"SIMON ANDRES ANGEL CHAVEZ", cedula:"1117547289", atenciones:"Consulta 1ra vez enfermería", estado:"Completo"},
+  {cps:"CPS 186", mes:"marzo", paciente:"REINALDO PENAGOS", cedula:"17622102", atenciones:"Consulta 1ra vez enfermería", estado:"Completo"},
+  {cps:"CPS 186", mes:"marzo", paciente:"MAYIBE QUIÑONEZ", cedula:"40767207", atenciones:"Consulta 1ra vez enfermería", estado:"Completo"},
+  {cps:"CPS 186", mes:"marzo", paciente:"CECILIA DEVIA CHACON", cedula:"40762228", atenciones:"Consulta 1ra vez enfermería", estado:"Completo"},
+  {cps:"CPS 186", mes:"abril", paciente:"YULI MENDEZ GAONA", cedula:"30521739", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 186", mes:"abril", paciente:"DIANA MARCELA MORENO HERNANDEZ", cedula:"1006510180", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 186", mes:"abril", paciente:"SANDRA COLLAZOS ALBARAN", cedula:"1117815658", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 186", mes:"abril", paciente:"SELENA ALVAREZ", cedula:"1118366093", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 186", mes:"abril", paciente:"SEIDA ALVAREZ", cedula:"31480415", atenciones:"Consulta 1ra vez medicina general; Consulta 1ra vez psicología; Consulta 1ra vez enfermería", estado:"Completo"},
+  {cps:"CPS 186", mes:"abril", paciente:"JOSE IVAN SALAZAR", cedula:"16457511", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 186", mes:"abril", paciente:"OIDEN JOSE TRUJILLO", cedula:"17681499", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 186", mes:"abril", paciente:"YAMILE MORENO YATE", cedula:"1117526183", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 186", mes:"abril", paciente:"NERY CORREA MARIN", cedula:"26631738", atenciones:"Consulta 1ra vez medicina general; Consulta 1ra vez psicología; Consulta 1ra vez enfermería", estado:"Completo"},
+  {cps:"CPS 186", mes:"abril", paciente:"MIGUEL ANTONIO ESCARPETTA", cedula:"4940053", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 186", mes:"abril", paciente:"ROSA MARIA CALDERON", cedula:"40755617", atenciones:"Consulta 1ra vez medicina general; Consulta 1ra vez psicología; Consulta 1ra vez enfermería", estado:"Completo"},
+  {cps:"CPS 186", mes:"abril", paciente:"JOSE ALFREDO HERNANDEZ", cedula:"17638608", atenciones:"Consulta 1ra vez medicina general; Consulta 1ra vez psicología; Consulta 1ra vez enfermería", estado:"Completo"},
+  {cps:"CPS 186", mes:"abril", paciente:"YULIANA MUÑETON VALDERRAMA", cedula:"1006526629", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 186", mes:"abril", paciente:"YOLANDA NUÑEZ GUTIERREZ", cedula:"40782046", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 186", mes:"abril", paciente:"PAOLA VASQUEZ MENZA", cedula:"1117547817", atenciones:"Consulta 1ra vez medicina general; Consulta 1ra vez psicología; Consulta 1ra vez enfermería", estado:"Completo"},
+  {cps:"CPS 186", mes:"abril", paciente:"ARLINDO JOSE DIAZ JOJOA", cedula:"1677286", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 186", mes:"abril", paciente:"DILIA MARIA ARTUNDUAGA", cedula:"40620164", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 186", mes:"abril", paciente:"MARTHA GASCA COLLAZOS", cedula:"40620533", atenciones:"Consulta 1ra vez medicina general; Consulta 1ra vez psicología; Consulta 1ra vez enfermería", estado:"Completo"},
+  {cps:"CPS 186", mes:"abril", paciente:"MARIELA CABEZAS DE SANCHEZ", cedula:"40771512", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 186", mes:"abril", paciente:"MARIA EDILMA MANQUILLO CLAROS", cedula:"1117528099", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 186", mes:"abril", paciente:"JOSE BELISARIO PACHECO", cedula:"5831152", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 186", mes:"abril", paciente:"GISELA BUENDIA OROZCO", cedula:"1045749382", atenciones:"Consulta 1ra vez medicina general; Consulta 1ra vez psicología; Consulta 1ra vez enfermería", estado:"Completo"},
+  {cps:"CPS 186", mes:"abril", paciente:"LEIDY SORAYA SANCHEZ", cedula:"1117501081", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 186", mes:"abril", paciente:"MARCO ALIRIO PACHECO", cedula:"17636882", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 186", mes:"abril", paciente:"LILIANA ARTUNDUAGA PARRA", cedula:"1117262673", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 186", mes:"abril", paciente:"CRISTINA PINILLA", cedula:"26641251", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 186", mes:"abril", paciente:"ROSA TULIA SANCHEZ", cedula:"38220733", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 186", mes:"abril", paciente:"ROSA TULIA SANCHEZ", cedula:"38220733", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 186", mes:"abril", paciente:"LIDIA IBARRA HERRERA", cedula:"26640570", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 186", mes:"abril", paciente:"MERCEDES BURGOS", cedula:"26620908", atenciones:"Consulta 1ra vez medicina general; Consulta 1ra vez psicología; Consulta 1ra vez enfermería", estado:"Completo"},
+  {cps:"CPS 186", mes:"abril", paciente:"TERESA PEÑA DE MARQUEZ", cedula:"30066182", atenciones:"Consulta 1ra vez medicina general; Consulta 1ra vez psicología; Consulta 1ra vez enfermería", estado:"Completo"},
+  {cps:"CPS 186", mes:"abril", paciente:"LUZ MERY CEBALLOS", cedula:"40725241", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 186", mes:"abril", paciente:"MABEL RUTH OLAYA", cedula:"35503793", atenciones:"—", estado:"No se encuentra en BD"},
+  {cps:"CPS 186", mes:"abril", paciente:"DELIO OVIEDO HERNANDEZ", cedula:"17633916", atenciones:"Consulta 1ra vez medicina general; Consulta 1ra vez psicología; Consulta 1ra vez enfermería", estado:"Completo"}
+];
+
+const PC_DATA = PLANES_CUIDADO_DETALLE.map(p => {
+  const c = DATA.find(d => d.cps === p.cps);
+  return { ...p, nombre: c ? c.nombre : '', ebs: c ? c.ebs : '' };
+});
+
+let filteredPC = [...PC_DATA];
+let pcPage = 1;
+const PC_PER_PAGE = 20;
+
+function filterPlanesCuidado() {
+  const q = document.getElementById('search-pc').value.toLowerCase();
+  const cps = document.getElementById('filter-pc-cps').value;
+  const mes = document.getElementById('filter-pc-mes').value;
+  const estado = document.getElementById('filter-pc-estado').value;
+
+  filteredPC = PC_DATA.filter(d => {
+    const matchQ = !q || d.paciente.toLowerCase().includes(q) || d.cedula.includes(q) || d.cps.toLowerCase().includes(q) || d.nombre.toLowerCase().includes(q);
+    const matchCps = !cps || d.cps === cps;
+    const matchMes = !mes || d.mes === mes;
+    const matchEstado = !estado || d.estado === estado;
+    return matchQ && matchCps && matchMes && matchEstado;
+  });
+  pcPage = 1;
+  renderPlanesCuidadoTable();
+}
+
+function renderPlanesCuidadoTable() {
+  const start = (pcPage - 1) * PC_PER_PAGE;
+  const page = filteredPC.slice(start, start + PC_PER_PAGE);
+  const tbody = document.getElementById('tbody-pc');
+
+  if (!page.length) {
+    tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state"><div class="emoji">🗂️</div><p>No se encontraron registros con ese criterio.</p></div></td></tr>';
+    document.getElementById('pc-count').textContent = '0 registros';
+    document.getElementById('pag-pc').innerHTML = '';
+    return;
+  }
+
+  tbody.innerHTML = page.map((d, i) => {
+    const rowNum = start + i + 1;
+    const isOk = d.estado === 'Completo';
+    const rowStyle = isOk ? 'background:#eaf7ef;' : 'background:#fdecea;';
+    const estadoBadge = isOk
+      ? `<strong style="color:#1a7a4a;">Completo</strong>`
+      : `<strong style="color:#c62828;">${d.estado}</strong>`;
+    const ebsLabel = d.ebs === 'TRANSVERSAL'
+      ? '<span style="color:var(--transversal);font-weight:600;">Transversal</span>'
+      : `<span style="font-weight:700;color:var(--verde);">${d.ebs}</span>`;
+    return `<tr style="${rowStyle}">
+      <td>${rowNum}</td>
+      <td><strong>${d.cps}</strong><br><span style="font-size:11px;color:#6b7a90;">${d.nombre}</span></td>
+      <td style="font-weight:600;">${d.paciente}</td>
+      <td>${d.cedula}</td>
+      <td>${ebsLabel}</td>
+      <td style="text-transform:capitalize;">${d.mes}</td>
+      <td>${d.atenciones}</td>
+      <td>${estadoBadge}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('pc-count').textContent = `${filteredPC.length} registro${filteredPC.length !== 1 ? 's' : ''}`;
+
+  const totalPages = Math.ceil(filteredPC.length / PC_PER_PAGE);
+  const pag = document.getElementById('pag-pc');
+  if (totalPages <= 1) { pag.innerHTML = ''; return; }
+  let html = '';
+  for (let i = 1; i <= totalPages; i++) {
+    html += `<button class="page-btn ${i === pcPage ? 'active' : ''}" onclick="goPCPage(${i})">${i}</button>`;
+  }
+  pag.innerHTML = html;
+}
+
+function goPCPage(p) { pcPage = p; renderPlanesCuidadoTable(); window.scrollTo(0,0); }
+
+function buildStatsPC() {
+  const total = PC_DATA.length;
+  const completos = PC_DATA.filter(d => d.estado === 'Completo').length;
+  const errores = total - completos;
+  const cpsSet = [...new Set(PC_DATA.map(d => d.cps))];
+  document.getElementById('stats-pc').innerHTML = `
+    <div class="stat-card"><div class="stat-num">${total}</div><div class="stat-label">Registros Cargados</div></div>
+    <div class="stat-card azul"><div class="stat-num">${completos}</div><div class="stat-label">Datos Completos</div></div>
+    <div class="stat-card trans"><div class="stat-num">${errores}</div><div class="stat-label">No encontrados en BD</div></div>
+    <div class="stat-card rural"><div class="stat-num">${cpsSet.length}</div><div class="stat-label">Profesionales con Cargue</div></div>
+  `;
+  const sel = document.getElementById('filter-pc-cps');
+  cpsSet.forEach(cps => {
+    const c = DATA.find(d => d.cps === cps);
+    const o = document.createElement('option');
+    o.value = cps;
+    o.textContent = `${cps} - ${c ? c.nombre : ''}`;
+    sel.appendChild(o);
+  });
+}
 
 let actsPage = 1;
 const ACTS_PER_PAGE = 20;
@@ -1066,6 +1491,7 @@ function goPagosPage(p){pagosPage=p;renderPagosTable();window.scrollTo(0,0);}
 
 // ===== INIT =====
 buildStats();
+buildStatsPC();
 filterContratistas();
 filterActividades();
 filterPagos();
