@@ -80,6 +80,8 @@
     margin: 0 auto;
     padding: 0 28px;
     display: flex; gap: 4px;
+    justify-content: center;
+    flex-wrap: wrap;
   }
   .nav-btn {
     padding: 14px 20px;
@@ -90,6 +92,7 @@
     border-bottom: 3px solid transparent;
     margin-bottom: -2px;
     transition: all .2s;
+    white-space: nowrap;
   }
   .nav-btn:hover { color: var(--verde); }
   .nav-btn.active { color: var(--verde); border-bottom-color: var(--verde); }
@@ -274,11 +277,51 @@
   .rol-odon { background: #e0f7fa; color: #00695c; }
 
   /* RESPONSIVE */
+  @media (max-width: 900px) {
+    .nav-inner { padding: 0 10px; }
+    .nav-btn { padding: 12px 14px; font-size: 12.5px; }
+    .content { padding: 18px 14px; }
+  }
+
   @media (max-width: 600px) {
-    .content { padding: 14px; }
-    nav { padding: 0 10px; }
-    .header { padding: 14px; }
-    .nav-btn { padding: 12px 12px; font-size: 12px; }
+    body { font-size: 13px; }
+    .content { padding: 12px; }
+    .header { padding: 14px 12px 12px; }
+    .header-icon { width: 150px; height: 60px; }
+    .header-title h1 { font-size: 17px; }
+    .header-title p { font-size: 10.5px; }
+    .header-badges { gap: 6px; }
+    .hbadge { font-size: 10px; padding: 3px 9px; }
+
+    nav { padding: 0; }
+    .nav-inner { padding: 0 6px; gap: 2px; justify-content: flex-start; overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
+    .nav-btn { padding: 12px 12px; font-size: 12px; flex-shrink: 0; }
+
+    .stats-row { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+    .stat-card { padding: 12px 14px; }
+    .stat-num { font-size: 22px; }
+
+    .toolbar { flex-direction: column; align-items: stretch; padding: 12px; }
+    .toolbar select, .search-wrap { width: 100%; }
+    .count-badge { align-self: flex-start; }
+
+    /* Tablas: scroll horizontal en vez de romper el layout */
+    .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    table { min-width: 640px; }
+    th, td { padding: 9px 10px; font-size: 12px; }
+
+    .ebs-grid { grid-template-columns: 1fr; gap: 12px; }
+    .ebs-header { padding: 12px 14px; }
+    .ebs-name { font-size: 14px; }
+
+    .pagination { gap: 4px; padding: 12px; }
+    .page-btn { padding: 5px 10px; font-size: 11px; }
+  }
+
+  @media (max-width: 380px) {
+    .header-icon { width: 120px; height: 50px; }
+    .header-title h1 { font-size: 15px; }
+    .nav-btn { padding: 10px 10px; font-size: 11.5px; }
   }
 
   /* EMPTY STATE */
@@ -777,7 +820,7 @@ const ACTIVITIES = {
   "CPS 240":{"marzo":3,"abril":1,"mayo":4,"junio":0,"total":8},
   "CPS 243":{"marzo":2,"abril":0,"mayo":0,"junio":0,"total":2},
   "CPS 253":{"marzo":0,"abril":1,"mayo":0,"junio":0,"total":1},
-  "CPS 266":{"marzo":1,"abril":0,"mayo":1,"junio":0,"total":2},
+  "CPS 266":{"marzo":1,"abril":0,"mayo":0,"junio":0,"total":1},
   "CPS 267":{"marzo":0,"abril":0,"mayo":2,"junio":0,"total":2},
   "CPS 269":{"marzo":0,"abril":1,"mayo":5,"junio":3,"total":9},
   "CPS 271":{"marzo":0,"abril":0,"mayo":7,"junio":3,"total":10},
