@@ -613,6 +613,24 @@
     <div style="font-size:.8rem;color:#888;margin-bottom:4px;">Fuente: SI-APS SISPRO · Resolución 0697/2024 · E.S.E. Hospital Malvinas Héctor Orozco Orozco</div>
   </div>
 
+  <!-- FILTRO POR FECHA DE CARACTERIZACIÓN -->
+  <div class="tb-panel tb-filter-panel" style="margin-bottom:24px">
+    <div class="tb-section-title">📅 Filtrar por Fecha de Caracterización</div>
+    <div class="tb-filter-bar">
+      <div class="tb-filter-field">
+        <label for="tb-filter-desde">Desde</label>
+        <input type="date" id="tb-filter-desde">
+      </div>
+      <div class="tb-filter-field">
+        <label for="tb-filter-hasta">Hasta</label>
+        <input type="date" id="tb-filter-hasta">
+      </div>
+      <button id="tb-filter-apply-btn" onclick="tbApplyDateFilter()">Aplicar filtro</button>
+      <button id="tb-filter-clear-btn" onclick="tbClearDateFilter()" style="display:none">✕ Quitar filtro</button>
+    </div>
+    <div id="tb-filter-status" class="tb-filter-status">Mostrando el total acumulado (todas las fechas).</div>
+  </div>
+
   <!-- KPIs principales -->
   <div class="tb-kpis" id="tb-kpis"></div>
 
@@ -2780,9 +2798,90 @@ const TABLERO_DATA = {
   ]
 };
 
-function buildTablero() {
+// Etiquetas/colores fijos para etnia y ciclos de vida (se usan tanto en la vista
+// por defecto como en la vista filtrada por fecha)
+const ETNIA_META = {
+  'Ninguna':    {label:'Ninguna de las anteriores', color:'#2a7ae4'},
+  'SD':         {label:'Sin Dato',                  color:'#bbb'},
+  'Indígena':   {label:'Indígena',                  color:'#e07b20'},
+  'Afrocolombiano': {label:'Afrocolombiano',         color:'#27ae60'},
+  'Negro(a)':   {label:'Negro(a)',                  color:'#8e44ad'},
+  'Raizal':     {label:'Raizal',                    color:'#16a085'},
+  'Palenquero': {label:'Palenquero de San Basilio',  color:'#e74c3c'},
+  'ROM':        {label:'ROM (Gitanos)',              color:'#f39c12'},
+};
+const CICLOS_META = {
+  pi: {icon:'👶', label:'Primera Infancia', rango:'0 - 5 años',   color:'#e07b20'},
+  in: {icon:'🧒', label:'Infancia',         rango:'6 - 11 años',  color:'#2a7ae4'},
+  ad: {icon:'🧑', label:'Adolescencia',     rango:'12 - 17 años', color:'#27ae60'},
+  ju: {icon:'🧑‍🎓', label:'Juventud',       rango:'18 - 28 años', color:'#8e44ad'},
+  au: {icon:'👩‍💼', label:'Adultez',        rango:'29 - 59 años', color:'#16a085'},
+  am: {icon:'👴', label:'Adulto Mayor',     rango:'60+ años',     color:'#e74c3c'},
+};
+const EAPB_COLORS = ['#e07b20','#2a7ae4','#27ae60','#8e44ad','#e74c3c','#16a085','#f39c12','#2980b9','#7f8c8d','#d35400','#1abc9c','#c0392b','#9b59b6','#34495e'];
+
+// Agregados por defecto (todo el histórico), calculados de antemano para
+// pintar el tablero de inmediato sin esperar la carga/descompresión del
+// dataset completo de familias.
+function defaultTableroStats() {
+  return {
+    totales: { ...TABLERO_DATA.totales },
+    ebs: TABLERO_DATA.ebs.map(e => ({ ...e })),
+    eapb: TABLERO_DATA.eapb.map(e => ({ ...e })),
+    etnia: [
+      {key:'Ninguna', val:26046}, {key:'SD', val:4407}, {key:'Indígena', val:252},
+      {key:'Afrocolombiano', val:207}, {key:'Negro(a)', val:39}, {key:'Raizal', val:2},
+      {key:'Palenquero', val:2}, {key:'ROM', val:2},
+    ],
+    ciclos: [
+      {key:'pi', val:2655}, {key:'in', val:2480}, {key:'ad', val:2404},
+      {key:'ju', val:5274}, {key:'au', val:11928}, {key:'am', val:6186},
+    ],
+    gestantes: TABLERO_DATA.totales.gestantes,
+  };
+}
+
+// Calcula los mismos agregados a partir de una lista de familias filtradas
+// (requiere TB_FAMILIAS/TB_PERSONAS ya cargados, ver tbLoadData()).
+function computeTableroStats(familias) {
+  const ebsMap = new Map();
+  const eapbMap = new Map();
+  const etniaMap = new Map();
+  const ciclosMap = new Map();
+  let personas = 0, gestantes = 0;
+
+  familias.forEach(fam => {
+    const ebsEntry = ebsMap.get(fam.ebs) || {id:fam.ebs, viviendas:0, hogares:0, personas:0};
+    ebsEntry.viviendas += 1; ebsEntry.hogares += 1; ebsEntry.personas += fam.m.length;
+    ebsMap.set(fam.ebs, ebsEntry);
+
+    fam.m.forEach(p => {
+      personas++;
+      const eapbNombre = p[8] || 'SIN DATO';
+      eapbMap.set(eapbNombre, (eapbMap.get(eapbNombre)||0) + 1);
+      const etniaKey = p[9] || 'SD';
+      etniaMap.set(etniaKey, (etniaMap.get(etniaKey)||0) + 1);
+      const cicloKey = p[10];
+      if (CICLOS_META[cicloKey]) ciclosMap.set(cicloKey, (ciclosMap.get(cicloKey)||0) + 1);
+      if (p[11]) gestantes++;
+    });
+  });
+
+  return {
+    totales: { viviendas: familias.length, hogares: familias.length, personas, gestantes },
+    ebs: [...ebsMap.values()],
+    eapb: [...eapbMap.entries()].map(([nombre,personas]) => ({nombre, hogares:0, personas})),
+    etnia: [...etniaMap.entries()].map(([key,val]) => ({key, val})),
+    ciclos: [...ciclosMap.entries()].map(([key,val]) => ({key, val})),
+    gestantes,
+  };
+}
+
+// Pinta el tablero completo (KPIs, etnia, ciclos, EBS y EAPB) a partir de un
+// objeto de estadísticas con la forma producida por defaultTableroStats()/computeTableroStats().
+function renderTablero(stats) {
   const kpis = document.getElementById('tb-kpis');
-  const t = TABLERO_DATA.totales;
+  const t = stats.totales;
   const fmt = n => n.toLocaleString('es-CO');
   kpis.innerHTML = `
     <div class="tb-kpi-card">
@@ -2801,52 +2900,41 @@ function buildTablero() {
       <div class="tb-kpi-label">Personas Caracterizadas</div>
     </div>
   `;
+
   // Etnia bars
-  const ETNIA_DATA = [
-    {label:'Ninguna de las anteriores', val:26046, color:'#2a7ae4'},
-    {label:'Sin Dato',                  val:4407,  color:'#bbb'},
-    {label:'Indígena',                  val:252,   color:'#e07b20'},
-    {label:'Afrocolombiano',            val:207,   color:'#27ae60'},
-    {label:'Negro(a)',                  val:39,    color:'#8e44ad'},
-    {label:'Raizal',                    val:2,     color:'#16a085'},
-    {label:'Palenquero de San Basilio', val:2,     color:'#e74c3c'},
-    {label:'ROM (Gitanos)',             val:2,     color:'#f39c12'},
-  ];
-  const maxE = ETNIA_DATA[0].val;
-  document.getElementById('tb-etnia-bars').innerHTML = ETNIA_DATA.map(e=>`
+  const etniaData = [...stats.etnia].sort((a,b)=>b.val-a.val)
+    .map(e => ({...e, ...(ETNIA_META[e.key]||{label:e.key,color:'#999'})}));
+  const maxE = etniaData.length ? etniaData[0].val : 1;
+  document.getElementById('tb-etnia-bars').innerHTML = etniaData.length ? etniaData.map(e=>`
     <div class="tb-bar-row">
       <div class="tb-bar-label eapb-label">${e.label}</div>
       <div class="tb-bar-wrap">
         <div class="tb-bar-fill" style="width:${(e.val/maxE*100).toFixed(1)}%;background:${e.color}"></div>
-        <span class="tb-bar-val">${fmt(e.val)} <small>(${(e.val/t.personas*100).toFixed(1)}%)</small></span>
+        <span class="tb-bar-val">${fmt(e.val)} <small>(${t.personas ? (e.val/t.personas*100).toFixed(1) : '0.0'}%)</small></span>
       </div>
-    </div>`).join('');
+    </div>`).join('') : '<div class="tb-no-result">Sin datos para el periodo seleccionado.</div>';
 
   // Ciclos de vida cards
-  const CICLOS = [
-    {key:'pi', icon:'👶', label:'Primera Infancia', rango:'0 - 5 años',  val:2655, color:'#e07b20'},
-    {key:'in', icon:'🧒', label:'Infancia',         rango:'6 - 11 años', val:2480, color:'#2a7ae4'},
-    {key:'ad', icon:'🧑', label:'Adolescencia',     rango:'12 - 17 años',val:2404, color:'#27ae60'},
-    {key:'ju', icon:'🧑‍🎓', label:'Juventud',       rango:'18 - 28 años',val:5274, color:'#8e44ad'},
-    {key:'au', icon:'👩‍💼', label:'Adultez',        rango:'29 - 59 años',val:11928,color:'#16a085'},
-    {key:'am', icon:'👴', label:'Adulto Mayor',     rango:'60+ años',    val:6186, color:'#e74c3c'},
-    {key:'ge', icon:'🤰', label:'Mujeres Gestantes',rango:'Todas las edades', val:196, color:'#d81b60'},
-  ];
-  document.getElementById('tb-ciclos-cards').innerHTML = CICLOS.map(c=>`
+  const ciclosOrder = ['pi','in','ad','ju','au','am'];
+  const ciclosByKey = new Map(stats.ciclos.map(c => [c.key, c.val]));
+  const ciclosData = ciclosOrder
+    .map(key => ({key, val: ciclosByKey.get(key)||0, ...CICLOS_META[key]}))
+    .concat([{key:'ge', icon:'🤰', label:'Mujeres Gestantes', rango:'Todas las edades', color:'#d81b60', val: t.gestantes||0}]);
+  document.getElementById('tb-ciclos-cards').innerHTML = ciclosData.map(c=>`
     <div class="tb-ciclo-card" onclick="tbShowCiclo('${c.key}','${c.label} (${c.rango})')" style="border-top-color:${c.color}">
       <div class="tb-ciclo-icon">${c.icon}</div>
       <div class="tb-ciclo-label">${c.label}</div>
       <div class="tb-ciclo-rango">${c.rango}</div>
       <div class="tb-ciclo-val" style="color:${c.color}">${fmt(c.val)}</div>
-      <div class="tb-ciclo-pct">${(c.val/t.personas*100).toFixed(1)}%</div>
+      <div class="tb-ciclo-pct">${t.personas ? (c.val/t.personas*100).toFixed(1) : '0.0'}%</div>
       <div class="tb-ciclo-ver">Ver listado →</div>
     </div>`).join('');
 
   // EBS bar chart
-  const ebsData = [...TABLERO_DATA.ebs].sort((a,b)=>b.personas-a.personas);
-  const maxP = ebsData[0].personas;
+  const ebsData = [...stats.ebs].sort((a,b)=>b.personas-a.personas);
+  const maxP = ebsData.length ? ebsData[0].personas : 1;
   const ebsCont = document.getElementById('tb-ebs-bars');
-  ebsCont.innerHTML = ebsData.map(e=>`
+  ebsCont.innerHTML = ebsData.length ? ebsData.map(e=>`
     <div class="tb-bar-row">
       <div class="tb-bar-label">${e.id}</div>
       <div class="tb-bar-wrap">
@@ -2854,36 +2942,94 @@ function buildTablero() {
         <span class="tb-bar-val">${fmt(e.personas)}</span>
       </div>
     </div>
-  `).join('');
+  `).join('') : '<div class="tb-no-result">Sin datos para el periodo seleccionado.</div>';
 
   // EBS table
   const ebsTable = document.getElementById('tb-ebs-table');
-  const ebsSorted = [...TABLERO_DATA.ebs].sort((a,b)=>a.id.localeCompare(b.id));
+  const ebsSorted = [...stats.ebs].sort((a,b)=>a.id.localeCompare(b.id));
   ebsTable.innerHTML = `
     <table>
       <thead><tr><th>EBS</th><th>Viviendas</th><th>Hogares</th><th>Personas</th></tr></thead>
       <tbody>
         ${ebsSorted.map(e=>`<tr><td><span class="badge-ebs-mini">${e.id}</span></td><td>${fmt(e.viviendas)}</td><td>${fmt(e.hogares)}</td><td><strong>${fmt(e.personas)}</strong></td></tr>`).join('')}
-        <tr class="tb-total-row"><td><strong>TOTAL</strong></td><td><strong>${fmt(TABLERO_DATA.totales.viviendas)}</strong></td><td><strong>${fmt(TABLERO_DATA.totales.hogares)}</strong></td><td><strong>${fmt(TABLERO_DATA.totales.personas)}</strong></td></tr>
+        <tr class="tb-total-row"><td><strong>TOTAL</strong></td><td><strong>${fmt(t.viviendas)}</strong></td><td><strong>${fmt(t.hogares)}</strong></td><td><strong>${fmt(t.personas)}</strong></td></tr>
       </tbody>
     </table>
   `;
 
   // EAPB donut-style horizontal bars
-  const eapbData = [...TABLERO_DATA.eapb].sort((a,b)=>b.personas-a.personas);
-  const maxEapb = eapbData[0].personas;
-  const totalPersonas = TABLERO_DATA.totales.personas;
+  const eapbData = [...stats.eapb].sort((a,b)=>b.personas-a.personas);
+  const maxEapb = eapbData.length ? eapbData[0].personas : 1;
+  const totalPersonas = t.personas;
   const eapbCont = document.getElementById('tb-eapb-bars');
-  const EAPB_COLORS = ['#e07b20','#2a7ae4','#27ae60','#8e44ad','#e74c3c','#16a085','#f39c12','#2980b9','#7f8c8d','#d35400','#1abc9c','#c0392b','#9b59b6','#34495e'];
-  eapbCont.innerHTML = eapbData.map((e,i)=>`
+  eapbCont.innerHTML = eapbData.length ? eapbData.map((e,i)=>`
     <div class="tb-bar-row">
       <div class="tb-bar-label eapb-label" title="${e.nombre}">${e.nombre}</div>
       <div class="tb-bar-wrap">
         <div class="tb-bar-fill" style="width:${(e.personas/maxEapb*100).toFixed(1)}%;background:${EAPB_COLORS[i%EAPB_COLORS.length]}"></div>
-        <span class="tb-bar-val">${fmt(e.personas)} <small>(${(e.personas/totalPersonas*100).toFixed(1)}%)</small></span>
+        <span class="tb-bar-val">${fmt(e.personas)} <small>(${totalPersonas ? (e.personas/totalPersonas*100).toFixed(1) : '0.0'}%)</small></span>
       </div>
     </div>
-  `).join('');
+  `).join('') : '<div class="tb-no-result">Sin datos para el periodo seleccionado.</div>';
+}
+
+function buildTablero() {
+  renderTablero(defaultTableroStats());
+}
+
+// ===== FILTRO POR FECHA DE CARACTERIZACIÓN =====
+async function tbApplyDateFilter() {
+  const desde = document.getElementById('tb-filter-desde').value; // 'YYYY-MM-DD' o ''
+  const hasta = document.getElementById('tb-filter-hasta').value;
+  const status = document.getElementById('tb-filter-status');
+  const applyBtn = document.getElementById('tb-filter-apply-btn');
+
+  if (!desde && !hasta) {
+    status.textContent = 'Seleccione al menos una fecha (Desde y/o Hasta) para aplicar el filtro.';
+    status.classList.remove('tb-filter-active');
+    return;
+  }
+  if (desde && hasta && desde > hasta) {
+    status.textContent = 'La fecha "Desde" no puede ser posterior a la fecha "Hasta".';
+    status.classList.remove('tb-filter-active');
+    return;
+  }
+
+  applyBtn.disabled = true;
+  const prevText = applyBtn.textContent;
+  applyBtn.textContent = 'Cargando...';
+  status.textContent = 'Cargando y filtrando datos...';
+
+  if (!TB_FAMILIAS) await tbLoadData();
+
+  const familiasFiltradas = TB_FAMILIAS.filter(fam => {
+    if (desde && fam.fecha < desde) return false;
+    if (hasta && fam.fecha > hasta) return false;
+    return true;
+  });
+
+  renderTablero(computeTableroStats(familiasFiltradas));
+
+  const rango = desde && hasta ? `entre ${desde} y ${hasta}`
+    : desde ? `desde ${desde}` : `hasta ${hasta}`;
+  status.textContent = familiasFiltradas.length
+    ? `Filtro activo: ${familiasFiltradas.length.toLocaleString('es-CO')} familia(s) caracterizadas ${rango}.`
+    : `No se encontraron familias caracterizadas ${rango}.`;
+  status.classList.add('tb-filter-active');
+
+  applyBtn.disabled = false;
+  applyBtn.textContent = prevText;
+  document.getElementById('tb-filter-clear-btn').style.display = 'inline-block';
+}
+
+function tbClearDateFilter() {
+  document.getElementById('tb-filter-desde').value = '';
+  document.getElementById('tb-filter-hasta').value = '';
+  document.getElementById('tb-filter-clear-btn').style.display = 'none';
+  const status = document.getElementById('tb-filter-status');
+  status.textContent = 'Mostrando el total acumulado (todas las fechas).';
+  status.classList.remove('tb-filter-active');
+  buildTablero();
 }
 </script>
 
@@ -2895,6 +3041,29 @@ function buildTablero() {
   border-bottom: 2px solid var(--verde);
   display: flex; align-items: center; gap: 8px;
 }
+.tb-filter-bar {
+  display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px;
+}
+.tb-filter-field {
+  display: flex; flex-direction: column; gap: 4px;
+}
+.tb-filter-field label {
+  font-size: .75rem; font-weight: 600; color: #666;
+}
+.tb-filter-field input[type="date"] {
+  padding: 8px 10px; border: 1.5px solid #ddd; border-radius: 8px; font-size: .85rem; outline: none;
+}
+.tb-filter-bar button {
+  padding: 9px 16px; border: none; border-radius: 8px; font-size: .85rem; font-weight: 700;
+  cursor: pointer; background: var(--verde); color: #fff;
+}
+.tb-filter-bar button:hover { background: var(--verde-oscuro); }
+#tb-filter-clear-btn { background: #888; }
+#tb-filter-clear-btn:hover { background: #666; }
+.tb-filter-status {
+  margin-top: 12px; font-size: .82rem; color: #555; font-weight: 600;
+}
+.tb-filter-status.tb-filter-active { color: var(--verde-oscuro); }
 .tb-kpis {
   display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; margin-bottom: 28px;
 }
