@@ -3799,10 +3799,20 @@ const PAGOS_CONTRATOS = {
       {cps:"CPS 229", nombre:"DAMARIS ALVAREZ MONSALVE",  ebs:"EBS002", valorTotal:10200000, valorEjecutado:2100000},
       {cps:"CPS 271", nombre:"LINA MARCELA CORTEZ VALENCIA", ebs:"EBS021", valorTotal:10200000, valorEjecutado:2100000},
       {cps:"CPS 274", nombre:"DIEGO FERNANDO CARDONA PERDOMO", ebs:"EBS023", valorTotal:10200000, valorEjecutado:2100000},
-      {cps:"CPS 276", nombre:"ERIKA VIVIANA MEDINA MORENO", ebs:"EBS019", valorTotal:10200000, valorEjecutado:2100000}
+      {cps:"CPS 276", nombre:"ERIKA VIVIANA MEDINA MORENO", ebs:"EBS019", valorTotal:10200000, valorEjecutado:2100000},
+      {cps:"CPS 226", nombre:"LUIS ENRIQUE VALENZUELA CRUZ", ebs:"EBS009", valorTotal:9000000, valorEjecutado:8100000, mes:"MAYO 2026"},
+      {cps:"CPS 231", nombre:"DIANA KATERIN OSPINA GARCES", ebs:"EBS012", valorTotal:9000000, valorEjecutado:8100000, mes:"MAYO 2026"},
+      {cps:"CPS 236", nombre:"JENNIFER ALEXANDRA CARDONA VALENCIA", ebs:"EBS011", valorTotal:9000000, valorEjecutado:8100000, mes:"MAYO 2026"},
+      {cps:"CPS 260", nombre:"MAYKEL SNAYDER BALLEN VARGAS", ebs:"EBS006", valorTotal:9000000, valorEjecutado:8100000, mes:"MAYO 2026"},
+      {cps:"CPS 265", nombre:"GISELLA AMAYA RODRIGUEZ", ebs:"EBS015", valorTotal:9000000, valorEjecutado:8100000, mes:"MAYO 2026"},
+      {cps:"CPS 269", nombre:"LILIANA LUGO FLOREZ", ebs:"EBS021", valorTotal:10200000, valorEjecutado:8100000, mes:"MAYO 2026"},
+      {cps:"CPS 283", nombre:"LEIDY PATRICIA ROJAS HERRERA", ebs:"EBS023", valorTotal:10200000, valorEjecutado:8100000, mes:"MAYO 2026"}
     ]
   }
 };
+// Nota: CPS 226,231,236,260,265,269,283 tienen corte MAYO 2026 (verificados manualmente).
+// El resto del perfil (228,229,271,274,276) sigue con corte MARZO 2026 (desactualizado).
+// Aún faltan ~43 auxiliares de enfermería por verificar/cargar.
 // Nota: "Auxiliar Enfermería" es un perfil numeroso (~60 contratistas). Por ahora solo se
 // cargaron 5 certificados encontrados (todos con corte MARZO 2026, desactualizado). El resto
 // está pendiente de cargar cuando se confirme la fuente/mes más reciente disponible.
@@ -3818,7 +3828,7 @@ function pagosrealFlatten() {
   Object.keys(PAGOS_CONTRATOS).forEach(perfil => {
     const data = PAGOS_CONTRATOS[perfil];
     data.items.forEach(r => {
-      rows.push(Object.assign({}, r, {perfil, mes: data.mes}));
+      rows.push(Object.assign({}, r, {perfil, mes: r.mes || data.mes}));
     });
   });
   return rows;
